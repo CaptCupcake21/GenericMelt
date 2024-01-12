@@ -1,7 +1,7 @@
 #include <ArduinoCRSF.h>
 #include <crc8.h>
 #include <crsf_protocol.h>
-//#include <median.h>
+#include <median.h>
 //#include <SPI.h>
 //#include <SparkFun_MMC5983MA_Arduino_Library.h>
 
@@ -29,6 +29,7 @@ byte LED_STATUS =  36;
 byte BOT_HDG_LED = 37;
 byte TOP_HDG_LED = 38;
 
+bool oddLoop = true;
 
 void setup() {
   //pinMode(MISO, OUTPUT);
@@ -58,6 +59,14 @@ void loop() {
   digitalWrite(BOT_HDG_LED, HIGH);   // turn the LED on (HIGH is the voltage level)
   digitalWrite(TOP_HDG_LED, LOW);
   delay(5);                       // wait for a second
+  if(oddLoop)
+  {
+    digitalWrite(LED_STATUS, HIGH);
+  }
+  else
+  {
+    digitalWrite(LED_STATUS, LOW);
+  }
   digitalWrite(TOP_HDG_LED, HIGH);    // turn the LED off by making the voltage LOW
   digitalWrite(BOT_HDG_LED, LOW); 
   delay(5);                       // wait for a second
