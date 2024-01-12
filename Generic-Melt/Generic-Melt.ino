@@ -1,6 +1,6 @@
-#include "ArduinoCRSF/ArduinoCRSF.h"
-//#include <crc8.h>
-//#include <crsf_protocol.h>
+#include <ArduinoCRSF.h>
+#include <crc8.h>
+#include <crsf_protocol.h>
 //#include <median.h>
 //#include <SPI.h>
 //#include <SparkFun_MMC5983MA_Arduino_Library.h>
