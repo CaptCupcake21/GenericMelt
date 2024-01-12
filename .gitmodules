@@ -1,6 +1,0 @@
-[submodule "ArduinoCRSF"]
-	path = ArduinoCRSF
-	url = https://github.com/AlfredoSystems/ArduinoCRSF.git
-[submodule "DShot_Test"]
-	path = DShot_Test
-	url = https://github.com/Juan-Elizondo/DShot_Test.git

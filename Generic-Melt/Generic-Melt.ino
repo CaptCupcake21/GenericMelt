@@ -1,4 +1,4 @@
-#include "../ArduinoCRSF/ArduinoCRSF.h"
+#include "ArduinoCRSF/ArduinoCRSF.h"
 //#include <crc8.h>
 //#include <crsf_protocol.h>
 //#include <median.h>
