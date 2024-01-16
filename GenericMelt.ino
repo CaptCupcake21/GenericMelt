@@ -2,12 +2,12 @@
 #include <crc8.h>
 #include <crsf_protocol.h>
 #include <median.h>
-//#include <SPI.h>
+#include <SPI.h>
 //#include <SparkFun_MMC5983MA_Arduino_Library.h>
 
 
 //Constants for GPIO Numbers
-//byte MISO =         1;
+byte ACC_MISO =     1;
 byte MAG_CS =       2;
 byte SNS_VIN =      3;
 byte IR_VIN =       4;
@@ -20,9 +20,12 @@ byte ACCB_INT =    10;
 byte ACCA_CS =     11;
 byte ACCA_INT =    12;
 byte MAG_INT =     13;
-//byte MOSI =        14;
+byte ACC_MOSI =        14;
 //byte SCK =         15;
 byte IR_LED_B =    16;
+byte S2_SCK =      23;
+byte S2_D1 =       26;
+byte S2_D2 =       25;
 byte ESC_A =       34; 
 byte ESC_B =       35;
 byte LED_STATUS =  36;
@@ -30,6 +33,10 @@ byte BOT_HDG_LED = 37;
 byte TOP_HDG_LED = 38;
 
 bool oddLoop = true;
+
+SPIClass SPIA;
+SPIClass SPIB;
+
 
 void setup() {
   //pinMode(MISO, OUTPUT);
@@ -39,9 +46,9 @@ void setup() {
   pinMode(IR_LED_A, OUTPUT);
   //pinMode(ELRS_TX, OUTPUT);
   //pinMode(ELRS_RX, INPUT);
-  pinMode(ACCB_CS, OUTPUT);
+  //pinMode(ACCB_CS, OUTPUT);
   pinMode(ACCB_INT, OUTPUT);
-  pinMode(ACCA_CS, OUTPUT);
+  //pinMode(ACCA_CS, OUTPUT);
   pinMode(ACCA_INT, OUTPUT);
   pinMode(MAG_INT, OUTPUT);
   //pinMode(MOSI, OUTPUT);
@@ -53,21 +60,46 @@ void setup() {
   pinMode(BOT_HDG_LED, OUTPUT);
   pinMode(TOP_HDG_LED, OUTPUT);
 
+  //general
+  Serial.begin(115200);
+  Serial.println("Snafoo we have started bitches!!!\n");
+
+  //Bluetooth
+
+  //InitAcel
+  SPIA = SPIClass(ACCA_CS);
+  SPIA.begin(S2_SCK, ACC_MISO, ACC_MOSI);
+  SPIA.endTransaction();
+
+  SPIB = SPIClass(ACCB_CS);
+  SPIB.begin(S2_SCK, ACC_MISO, ACC_MOSI);
+  SPIB.endTransaction();
+
+  //initPWM
 }
 
 void loop() {
-  digitalWrite(BOT_HDG_LED, HIGH);   // turn the LED on (HIGH is the voltage level)
-  digitalWrite(TOP_HDG_LED, LOW);
-  delay(5);                       // wait for a second
-  if(oddLoop)
-  {
-    digitalWrite(LED_STATUS, HIGH);
-  }
-  else
-  {
-    digitalWrite(LED_STATUS, LOW);
-  }
-  digitalWrite(TOP_HDG_LED, HIGH);    // turn the LED off by making the voltage LOW
-  digitalWrite(BOT_HDG_LED, LOW); 
-  delay(5);                       // wait for a second
+  uint32_t dataA, dataB;
+  //read accel
+  SPIA.beginTransaction(SPISettings(14000000, MSBFIRST, SPI_MODE0));
+  dataA = SPIA.transfer32(0x00000000);
+  SPIA.endTransaction();
+  Serial.print("DataA: ");
+  Serial.println(dataA);
+  
+  SPIB.beginTransaction(SPISettings(14000000, MSBFIRST, SPI_MODE0));
+  dataB = SPIB.transfer32(0x00000000);
+  SPIB.endTransaction();
+  Serial.print("DataB: ");
+  Serial.println(dataB);
+
+  //Packet / control section
+
+  //Check State
+  
+    //melty -> spin saft enough to drift
+    //Tank -> Drive like Tank
+    //Safe -> Do nothing
+
+  
 }
