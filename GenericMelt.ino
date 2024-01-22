@@ -68,11 +68,9 @@ void setup() {
   //InitAcel
   SPIA = SPIClass(ACCA_CS);
   SPIA.begin(S2_SCK, ACC_MISO, ACC_MOSI);
-  SPIA.endTransaction();
 
   SPIB = SPIClass(ACCB_CS);
   SPIB.begin(S2_SCK, ACC_MISO, ACC_MOSI);
-  SPIB.endTransaction();
 
   //initPWM
 }
@@ -81,13 +79,17 @@ void loop() {
   uint32_t dataA, dataB;
   //read accel
   SPIA.beginTransaction(SPISettings(14000000, MSBFIRST, SPI_MODE0));
-  dataA = SPIA.transfer32(0x00000000);
+  SPIA.setHwCs(LOW);
+  dataA = SPIA.transfer(0x00);
+  SPIA.setHwCs(HIGH);
   SPIA.endTransaction();
   Serial.print("DataA: ");
   Serial.println(dataA);
   
   SPIB.beginTransaction(SPISettings(14000000, MSBFIRST, SPI_MODE0));
-  dataB = SPIB.transfer32(0x00000000);
+  SPIA.setHwCs(LOW);
+  dataB = SPIB.transfer(0x00);
+  SPIA.setHwCs(HIGH);
   SPIB.endTransaction();
   Serial.print("DataB: ");
   Serial.println(dataB);
