@@ -25,6 +25,8 @@ struct channels
 HardwareSerial crsfSerial(1);
 AlfredoCRSF crsf;
 channels mChannels;
+DShotESC escA;
+DShotESC escB;
 
 //Constants for GPIO Numbers
 byte S2_MISO =      1; //GPIO Pin for: MISO on ESP32-S2
@@ -173,37 +175,66 @@ void setup() {
   getAllChannels(&mChannels);
   Serial.printf("Channel:\n Right_LR: %d\n Right_UD: %d\n Left_LR:  %d\n Left_UD:  %d\n E:        %d\nF:        %d\n B:        %d\n C:        %d\n A:        %d\n D:        %d\n G:        %d\n H:        %d\n", mChannels.Right_LR, mChannels.Right_UD, mChannels.Left_LR, mChannels.Left_UD, mChannels.E, mChannels.F, mChannels.B, mChannels.C, mChannels.A, mChannels.D, mChannels.G, mChannels.H);
 
-}
-
-void loop() {
-  DShotESC escA;
+  //setup Dshot
 	escA.install(GPIO_NUM_34, RMT_CHANNEL_0);
 	escA.init();
 	escA.setReversed(false);
 	escA.set3DMode(true);
+  
+	escB.install(GPIO_NUM_34, RMT_CHANNEL_0);
+	escB.init();
+	escB.setReversed(true);
+	escB.set3DMode(true);
+
+  escA.sendMotorStop();
+  escB.sendMotorStop();
 	for (int i = 0; i < 5; i++)
 	{
 		escA.beep(i);
 	}
+}
+
+void loop() {
   bool startupComplete = 1;
-while (startupComplete == 1){
   crsf.update();
   Mode = getCurrentMode();
-//Safe Control Loop -- This Loop Makes the Robot Safe When Connection is Dropped or Safe Mode is Activated
-if(!crsf.isLinkUp() || Mode == 1){
-  digitalWrite(LED_STATUS, HIGH);
-}
+  //Safe Control Loop -- This Loop Makes the Robot Safe When Connection is Dropped or Safe Mode is Activated
+  if(!crsf.isLinkUp() || Mode == 1){
+    digitalWrite(LED_STATUS, HIGH);
+    //STOP!
+    escA.sendMotorStop();
+    escB.sendMotorStop();
+  }
 
 
-//Standard Drive Control Loop -- This Loop Allows Controlling the Robot using Tank Controls. Motion is Limited to Tank Steering Only. All Motion is Controlled by Operator.
-if(crsf.isLinkUp() && Mode==2){
-  digitalWrite(LED_STATUS, LOW);
-}
+  //Standard Drive Control Loop -- This Loop Allows Controlling the Robot using Tank Controls. Motion is Limited to Tank Steering Only. All Motion is Controlled by Operator.
+  if(crsf.isLinkUp() && Mode==2){
+    digitalWrite(LED_STATUS, LOW);
 
-//Melty Control Loop -- This Loop Puts the Robot into Melty Mode. Operator Controls Angular Velocity, Direction, and Drift.
-//WARNING -- THIS MODE IS EXTREMELY HAZARDOUS AND EXTREME CAUTION SHOULD BE USED WHEN ENTERING THIS MODE. USE PPE AND PROTECTIVE EQUIPMENT TO PREVENT INJURY.
-if((crsf.isLinkUp()) && (Mode == 3)){
-  escA.sendThrottle3D(50);
-  delay(1);
-}}
+    int throttleA = 0;
+    int throttleB = 0;
+
+    //Get channels
+    getStandardDriveSticks(&mChannels);
+
+    //get ranges pre scalled between [-16,16]
+    mChannels.Right_LR = (mChannels.Right_LR >> 5) - 46;
+    //get ranges pre scalled between [-32,32]
+    mChannels.Right_UD = (mChannels.Right_LR >> 4) - 93;
+
+    //update throttles between [-48,48]
+    throttleA = mChannels.Right_UD - mChannels.Right_LR;
+    throttleB = mChannels.Right_UD + mChannels.Right_LR;
+
+    //send throttles 
+    escA.sendThrottle3D(throttleA);
+    escB.sendThrottle3D(throttleB);
+  }
+
+  //Melty Control Loop -- This Loop Puts the Robot into Melty Mode. Operator Controls Angular Velocity, Direction, and Drift.
+  //WARNING -- THIS MODE IS EXTREMELY HAZARDOUS AND EXTREME CAUTION SHOULD BE USED WHEN ENTERING THIS MODE. USE PPE AND PROTECTIVE EQUIPMENT TO PREVENT INJURY.
+  if((crsf.isLinkUp()) && (Mode == 3)){
+    escA.sendThrottle3D(50);
+    delay(1);
+  }
 }
