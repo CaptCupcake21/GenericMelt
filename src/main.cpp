@@ -6,9 +6,25 @@
 #include <median.h>
 #include <SparkFun_MMC5983MA_Arduino_Library.h>
 
+struct channels
+{
+  int Right_LR; // Axis 990-2011 center on 1500
+  int Right_UD; // Axis 990-2011 center on 1500
+  int Left_LR; // Axis 990-2011 no centering
+  int Left_UD; // Axis 990-2011 center on 1500
+  int E; // 2-Pos Switch 1000-2000
+  int F; // 2-Pos Switch 1000-2000
+  int B; // 3-Pos Switch 1000-2000, center 1500
+  int C; // 3-Pos Switch 1000-2000, center 1500
+  int A; // Button 1000-2000
+  int D; // Button 1000-2000
+  int G; // Button 1000-2000
+  int H; // Button 1000-2000
+};
+
 HardwareSerial crsfSerial(1);
 AlfredoCRSF crsf;
-
+channels mChannels;
 
 //Constants for GPIO Numbers
 byte S2_MISO =      1; //GPIO Pin for: MISO on ESP32-S2
@@ -33,42 +49,6 @@ byte LED_STATUS =  36; //GPIO Pin for: Status LED
 byte BOT_HDG_LED = 37; //GPIO Pin for: Bottom Heading LED
 byte TOP_HDG_LED = 38; //GPIO Pin for: Top Heading LED
 byte Mode = 0;
-
-void setup() {
-  pinMode(S2_MISO, OUTPUT);
-  pinMode(MAG_CS, OUTPUT);
-  pinMode(SNS_VIN, INPUT);
-  pinMode(IR_VIN, INPUT);
-  pinMode(IR_LED_A, OUTPUT);
-  pinMode(ELRS_TX, OUTPUT);
-  pinMode(ELRS_RX, INPUT);
-  pinMode(ACCB_CS, OUTPUT);
-  pinMode(ACCB_INT, OUTPUT);
-  pinMode(ACCA_CS, OUTPUT);
-  pinMode(ACCA_INT, OUTPUT);
-  pinMode(MAG_INT, OUTPUT);
-  pinMode(S2_MOSI, OUTPUT);
-  pinMode(S2_SCK, OUTPUT);
-  pinMode(IR_LED_B, OUTPUT);
-  pinMode(ESC_A, OUTPUT);
-  pinMode(ESC_B, OUTPUT);
-  pinMode(LED_STATUS, OUTPUT);
-  pinMode(BOT_HDG_LED, OUTPUT);
-  pinMode(TOP_HDG_LED, OUTPUT);
-
-
-  Serial.begin(115200);
-  Serial.println("Snafoo we have started bitches!!!\n");
-
-
-	Serial.begin(115200);
-
-
-  crsfSerial.begin(CRSF_BAUDRATE, SERIAL_8N1, ELRS_TX, ELRS_RX);
-  if (!crsfSerial) while (1) Serial.println("Invalid crsfSerial configuration");
-
-  crsf.begin(crsfSerial);
-}
 
 //Function Returns the Current Mode of the Robot.
 // OUTPUT:
@@ -100,12 +80,45 @@ return CurrentMode;
 }
 
 //Function Returns ESC Values Corresponding to Current Stick Positions
-// OUTPUT:
+void getAllChannels(channels* chan){
+  chan->Right_LR = crsf.getChannel(1);
+  chan->Right_UD = crsf.getChannel(2);
+  chan->Left_LR = crsf.getChannel(3);
+  chan->Left_UD = crsf.getChannel(4);
+  chan->E = crsf.getChannel(5);
+  chan->F = crsf.getChannel(6);
+  chan->B = crsf.getChannel(7);
+  chan->C = crsf.getChannel(8);
+  chan->A = crsf.getChannel(9);
+  chan->D = crsf.getChannel(10);
+  chan->G = crsf.getChannel(11);
+  chan->H = crsf.getChannel(12);
+  return;
+}
 
-//array getStandardDriveStickCommands(){
-//int rightLR = crsf.getChannel(1);
-//int rightUD = crsf.getChannel(2);
-//}
+void getStandardDriveSticks(channels* chan){
+  chan->Right_LR = crsf.getChannel(1);
+  chan->Right_UD = crsf.getChannel(2);
+  chan->Left_LR = crsf.getChannel(3);
+  chan->Left_UD = crsf.getChannel(4);
+  return;
+}
+
+void getStandardPositionSwitches(channels* chan) {
+  chan->E = crsf.getChannel(5);
+  chan->F = crsf.getChannel(6);
+  chan->B = crsf.getChannel(7);
+  chan->C = crsf.getChannel(8);
+  return;
+}
+
+void getStandardButtons(channels* chan) {
+  chan->A = crsf.getChannel(9);
+  chan->D = crsf.getChannel(10);
+  chan->G = crsf.getChannel(11);
+  chan->H = crsf.getChannel(12);
+  return;
+}
 
 //This function returns the angular velocity of the robot at a moment in time
 //Acc_A_X = The raw acceleration value from Accelerometer A, in the X direction
@@ -121,6 +134,44 @@ int Acc_Diff = Acc_A_n - Acc_B_n;
 int Omega_Squared = Acc_Diff/AccGapDistance;
 int Omega = sqrt(Omega_Squared); 
 return Omega;
+
+}
+
+void setup() {
+  pinMode(S2_MISO, OUTPUT);
+  pinMode(MAG_CS, OUTPUT);
+  pinMode(SNS_VIN, INPUT);
+  pinMode(IR_VIN, INPUT);
+  pinMode(IR_LED_A, OUTPUT);
+  pinMode(ELRS_TX, OUTPUT);
+  pinMode(ELRS_RX, INPUT);
+  pinMode(ACCB_CS, OUTPUT);
+  pinMode(ACCB_INT, OUTPUT);
+  pinMode(ACCA_CS, OUTPUT);
+  pinMode(ACCA_INT, OUTPUT);
+  pinMode(MAG_INT, OUTPUT);
+  pinMode(S2_MOSI, OUTPUT);
+  pinMode(S2_SCK, OUTPUT);
+  pinMode(IR_LED_B, OUTPUT);
+  pinMode(ESC_A, OUTPUT);
+  pinMode(ESC_B, OUTPUT);
+  pinMode(LED_STATUS, OUTPUT);
+  pinMode(BOT_HDG_LED, OUTPUT);
+  pinMode(TOP_HDG_LED, OUTPUT);
+
+
+  Serial.begin(115200);
+  Serial.println("Snafoo we have started bitches!!!\n");
+
+
+  crsfSerial.begin(CRSF_BAUDRATE, SERIAL_8N1, ELRS_TX, ELRS_RX);
+  if (!crsfSerial) while (1) Serial.println("Invalid crsfSerial configuration");
+
+  crsf.begin(crsfSerial);
+
+  //Grab and display all channes current values
+  getAllChannels(&mChannels);
+  Serial.printf("Channel:\n Right_LR: %d\n Right_UD: %d\n Left_LR:  %d\n Left_UD:  %d\n E:        %d\nF:        %d\n B:        %d\n C:        %d\n A:        %d\n D:        %d\n G:        %d\n H:        %d\n", mChannels.Right_LR, mChannels.Right_UD, mChannels.Left_LR, mChannels.Left_UD, mChannels.E, mChannels.F, mChannels.B, mChannels.C, mChannels.A, mChannels.D, mChannels.G, mChannels.H);
 
 }
 
@@ -156,4 +207,3 @@ if((crsf.isLinkUp()) && (Mode == 3)){
   delay(1);
 }}
 }
-
