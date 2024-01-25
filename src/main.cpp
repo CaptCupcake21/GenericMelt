@@ -181,9 +181,15 @@ void setup() {
 	escA.setReversed(false);
 	escA.set3DMode(true);
   
+<<<<<<< Updated upstream
 	escB.install(GPIO_NUM_34, RMT_CHANNEL_0);
 	escB.init();
 	escB.setReversed(true);
+=======
+	escB.install(GPIO_NUM_35, RMT_CHANNEL_1);
+	escB.init();
+	escB.setReversed(false);
+>>>>>>> Stashed changes
 	escB.set3DMode(true);
 
   escA.sendMotorStop();
@@ -237,4 +243,3 @@ void loop() {
     escA.sendThrottle3D(50);
     delay(1);
   }
-}
