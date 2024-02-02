@@ -145,7 +145,61 @@ int Acc_Diff = Acc_A_n - Acc_B_n;
 int Omega_Squared = Acc_Diff/AccGapDistance;
 int Omega = sqrt(Omega_Squared); 
 return Omega;
+}
 
+void mode1()
+{
+    digitalWrite(LED_STATUS, HIGH);
+    //STOP!
+    escLeft.sendMotorStop();
+    escRight.sendMotorStop();
+}
+
+void mode2()
+{
+    digitalWrite(LED_STATUS, LOW);
+
+    int throttleL = 0;
+    int throttleR = 0;
+
+    //Get channels
+    getStandardDriveSticks(&mChannels);
+
+    //get ranges pre scalled between [-128,128] [247,502]
+    mChannels.Right_LR = (mChannels.Right_LR >> 2) - 375;
+    //get ranges pre scalled between [-256,256] [247,502]
+    mChannels.Right_UD = (mChannels.Right_LR >> 1) - 750;
+
+    //update throttles between [-48,48]
+    throttleL = mChannels.Right_UD - mChannels.Right_LR;
+    throttleR = mChannels.Right_UD + mChannels.Right_LR;
+
+    // If we need to flip the direction of the motor do so
+    if((!mMotors.Reversed_L && (throttleL < 0)) || (mMotors.Reversed_L && (throttleL >= 0))) 
+    {
+      mMotors.Reversed_L = !mMotors.Reversed_L;
+      escLeft.setReversed(mMotors.Reversed_L);
+    }
+
+    if((!mMotors.Reversed_R && (throttleR < 0)) || (mMotors.Reversed_R && (throttleR >= 0))) 
+    {
+      mMotors.Reversed_R = !mMotors.Reversed_R;
+      escRight.setReversed(mMotors.Reversed_R);
+    }
+
+    //get absolute value to pass into throttle
+    throttleL = abs(throttleL);
+    throttleR = abs(throttleR);
+
+    //send throttles 
+    escLeft.sendThrottle(throttleL);
+    escRight.sendThrottle(throttleR);
+}
+
+void mode3()
+{
+  escLeft.sendThrottle3D(50);
+  delay(1);
 }
 
 void setup() {
@@ -209,63 +263,25 @@ void setup() {
 }
 
 void loop() {
-  bool startupComplete = 1;
   crsf.update();
   Mode = getCurrentMode();
   //Safe Control Loop -- This Loop Makes the Robot Safe When Connection is Dropped or Safe Mode is Activated
   if(!crsf.isLinkUp() || Mode == 1){
-    digitalWrite(LED_STATUS, HIGH);
-    //STOP!
-    escLeft.sendMotorStop();
-    escRight.sendMotorStop();
+    mode1();
+    return;
   }
-
-
+  
   //Standard Drive Control Loop -- This Loop Allows Controlling the Robot using Tank Controls. Motion is Limited to Tank Steering Only. All Motion is Controlled by Operator.
   if(crsf.isLinkUp() && Mode==2){
-    digitalWrite(LED_STATUS, LOW);
-
-    int throttleL = 0;
-    int throttleR = 0;
-
-    //Get channels
-    getStandardDriveSticks(&mChannels);
-
-    //get ranges pre scalled between [-128,128] [247,502]
-    mChannels.Right_LR = (mChannels.Right_LR >> 2) - 375;
-    //get ranges pre scalled between [-256,256] [247,502]
-    mChannels.Right_UD = (mChannels.Right_LR >> 1) - 750;
-
-    //update throttles between [-48,48]
-    throttleL = mChannels.Right_UD - mChannels.Right_LR;
-    throttleR = mChannels.Right_UD + mChannels.Right_LR;
-
-    // If we need to flip the direction of the motor do so
-    if((!mMotors.Reversed_L && (throttleL < 0)) || (mMotors.Reversed_L && (throttleL >= 0))) 
-    {
-      mMotors.Reversed_L = !mMotors.Reversed_L;
-      escLeft.setReversed(mMotors.Reversed_L);
-    }
-
-    if((!mMotors.Reversed_R && (throttleR < 0)) || (mMotors.Reversed_R && (throttleR >= 0))) 
-    {
-      mMotors.Reversed_R = !mMotors.Reversed_R;
-      escRight.setReversed(mMotors.Reversed_R);
-    }
-
-    //
-    throttleL = abs(throttleL);
-    throttleR = abs(throttleR);
-
-    //send throttles 
-    escLeft.sendThrottle3D(throttleL);
-    escRight.sendThrottle3D(throttleR);
+    mode2();
+    return;
   }
 
   //Melty Control Loop -- This Loop Puts the Robot into Melty Mode. Operator Controls Angular Velocity, Direction, and Drift.
   //WARNING -- THIS MODE IS EXTREMELY HAZARDOUS AND EXTREME CAUTION SHOULD BE USED WHEN ENTERING THIS MODE. USE PPE AND PROTECTIVE EQUIPMENT TO PREVENT INJURY.
   if((crsf.isLinkUp()) && (Mode == 3)){
-    escLeft.sendThrottle3D(50);
-    delay(1);
+    mode3();
+    return;
   }
+  //end of main loop
 }
