@@ -22,11 +22,20 @@ struct channels
   int H; // Button 1000-2000
 };
 
+struct MotorManager
+{
+  bool Forward_L;
+  bool Forward_R;
+  bool Reversed_L;
+  bool Reversed_R;
+};
+
 HardwareSerial crsfSerial(1);
 AlfredoCRSF crsf;
 channels mChannels;
-DShotESC escA;
-DShotESC escB;
+MotorManager mMotors;
+DShotESC escLeft;
+DShotESC escRight;
 
 //Constants for GPIO Numbers
 byte S2_MISO =      1; //GPIO Pin for: MISO on ESP32-S2
@@ -176,27 +185,26 @@ void setup() {
   Serial.printf("Channel:\n Right_LR: %d\n Right_UD: %d\n Left_LR:  %d\n Left_UD:  %d\n E:        %d\nF:        %d\n B:        %d\n C:        %d\n A:        %d\n D:        %d\n G:        %d\n H:        %d\n", mChannels.Right_LR, mChannels.Right_UD, mChannels.Left_LR, mChannels.Left_UD, mChannels.E, mChannels.F, mChannels.B, mChannels.C, mChannels.A, mChannels.D, mChannels.G, mChannels.H);
 
   //setup Dshot
-	escA.install(GPIO_NUM_34, RMT_CHANNEL_0);
-	escA.init();
-	escA.setReversed(false);
-	escA.set3DMode(true);
-  
-<<<<<<< Updated upstream
-	escB.install(GPIO_NUM_34, RMT_CHANNEL_0);
-	escB.init();
-	escB.setReversed(true);
-=======
-	escB.install(GPIO_NUM_35, RMT_CHANNEL_1);
-	escB.init();
-	escB.setReversed(false);
->>>>>>> Stashed changes
-	escB.set3DMode(true);
+  mMotors.Forward_L = false;
+  mMotors.Forward_R = true;
+  mMotors.Reversed_L = false;
+  mMotors.Reversed_R = false;
 
-  escA.sendMotorStop();
-  escB.sendMotorStop();
+	escLeft.install(GPIO_NUM_34, RMT_CHANNEL_0);
+	escLeft.init();
+	escLeft.setReversed(mMotors.Forward_L);
+	escLeft.set3DMode(true);
+  
+	escRight.install(GPIO_NUM_34, RMT_CHANNEL_0);
+	escRight.init();
+	escRight.setReversed(mMotors.Forward_R);
+	escRight.set3DMode(true);
+
+  escLeft.sendMotorStop();
+  escRight.sendMotorStop();
 	for (int i = 0; i < 5; i++)
 	{
-		escA.beep(i);
+		escLeft.beep(i);
 	}
 }
 
@@ -208,8 +216,8 @@ void loop() {
   if(!crsf.isLinkUp() || Mode == 1){
     digitalWrite(LED_STATUS, HIGH);
     //STOP!
-    escA.sendMotorStop();
-    escB.sendMotorStop();
+    escLeft.sendMotorStop();
+    escRight.sendMotorStop();
   }
 
 
@@ -217,29 +225,47 @@ void loop() {
   if(crsf.isLinkUp() && Mode==2){
     digitalWrite(LED_STATUS, LOW);
 
-    int throttleA = 0;
-    int throttleB = 0;
+    int throttleL = 0;
+    int throttleR = 0;
 
     //Get channels
     getStandardDriveSticks(&mChannels);
 
-    //get ranges pre scalled between [-16,16]
-    mChannels.Right_LR = (mChannels.Right_LR >> 5) - 46;
-    //get ranges pre scalled between [-32,32]
-    mChannels.Right_UD = (mChannels.Right_LR >> 4) - 93;
+    //get ranges pre scalled between [-128,128] [247,502]
+    mChannels.Right_LR = (mChannels.Right_LR >> 2) - 375;
+    //get ranges pre scalled between [-256,256] [247,502]
+    mChannels.Right_UD = (mChannels.Right_LR >> 1) - 750;
 
     //update throttles between [-48,48]
-    throttleA = mChannels.Right_UD - mChannels.Right_LR;
-    throttleB = mChannels.Right_UD + mChannels.Right_LR;
+    throttleL = mChannels.Right_UD - mChannels.Right_LR;
+    throttleR = mChannels.Right_UD + mChannels.Right_LR;
+
+    // If we need to flip the direction of the motor do so
+    if((!mMotors.Reversed_L && (throttleL < 0)) || (mMotors.Reversed_L && (throttleL >= 0))) 
+    {
+      mMotors.Reversed_L = !mMotors.Reversed_L;
+      escLeft.setReversed(mMotors.Reversed_L);
+    }
+
+    if((!mMotors.Reversed_R && (throttleR < 0)) || (mMotors.Reversed_R && (throttleR >= 0))) 
+    {
+      mMotors.Reversed_R = !mMotors.Reversed_R;
+      escRight.setReversed(mMotors.Reversed_R);
+    }
+
+    //
+    throttleL = abs(throttleL);
+    throttleR = abs(throttleR);
 
     //send throttles 
-    escA.sendThrottle3D(throttleA);
-    escB.sendThrottle3D(throttleB);
+    escLeft.sendThrottle3D(throttleL);
+    escRight.sendThrottle3D(throttleR);
   }
 
   //Melty Control Loop -- This Loop Puts the Robot into Melty Mode. Operator Controls Angular Velocity, Direction, and Drift.
   //WARNING -- THIS MODE IS EXTREMELY HAZARDOUS AND EXTREME CAUTION SHOULD BE USED WHEN ENTERING THIS MODE. USE PPE AND PROTECTIVE EQUIPMENT TO PREVENT INJURY.
   if((crsf.isLinkUp()) && (Mode == 3)){
-    escA.sendThrottle3D(50);
+    escLeft.sendThrottle3D(50);
     delay(1);
   }
+}
