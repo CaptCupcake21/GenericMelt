@@ -5,6 +5,7 @@
 #include <crsf_protocol.h>
 #include <median.h>
 #include <SparkFun_MMC5983MA_Arduino_Library.h>
+#include "ESCCont.h"
 
 struct channels
 {
@@ -22,20 +23,11 @@ struct channels
   int H; // Button 1000-2000
 };
 
-struct MotorManager
-{
-  bool Forward_L;
-  bool Forward_R;
-  bool Reversed_L;
-  bool Reversed_R;
-};
-
 HardwareSerial crsfSerial(1);
 AlfredoCRSF crsf;
 channels mChannels;
-MotorManager mMotors;
-DShotESC escLeft;
-DShotESC escRight;
+ESCCont ESCA; // "left"
+ESCCont ESCB; // "right"
 
 //Constants for GPIO Numbers
 byte S2_MISO =      1; //GPIO Pin for: MISO on ESP32-S2
@@ -67,27 +59,27 @@ byte Mode = 0;
 // 2 = Standard Drive Mode
 // 3 = Melty Mode
 byte getCurrentMode(){
-byte CurrentMode;
+  byte CurrentMode;
 
-int Mode = crsf.getChannel(7);
-// Lowest Position Will Be Safe Mode
-if((Mode >= 900) && (Mode < 1250)){
-  CurrentMode = 1;
-}
-// Middle Position Will Be Standard Drive Mode
-if((Mode >= 1250) && (Mode < 1750)){
-  CurrentMode = 2;
-}
-// Highest Position Will Be Melty Mode
-//TODO: Add Requirement for Deadman Switch(es) for Mode to be Active
-if((Mode >= 1750) && (Mode <= 2100)){
-  CurrentMode = 3;
-}
-//If Mode Has an Out of Bounds Value, Enter Safe Mode
-if((Mode <900) || (Mode > 2100)){
-  CurrentMode = 1;
-}
-return CurrentMode;
+  int Mode = crsf.getChannel(7);
+  // Lowest Position Will Be Safe Mode
+  if((Mode >= 900) && (Mode < 1250)){
+    CurrentMode = 1;
+  }
+  // Middle Position Will Be Standard Drive Mode
+  if((Mode >= 1250) && (Mode < 1750)){
+    CurrentMode = 2;
+  }
+  // Highest Position Will Be Melty Mode
+  //TODO: Add Requirement for Deadman Switch(es) for Mode to be Active
+  if((Mode >= 1750) && (Mode <= 2100)){
+    CurrentMode = 3;
+  }
+  //If Mode Has an Out of Bounds Value, Enter Safe Mode
+  if((Mode <900) || (Mode > 2100)){
+    CurrentMode = 1;
+  }
+  return CurrentMode;
 }
 
 //Function Returns ESC Values Corresponding to Current Stick Positions
@@ -138,68 +130,57 @@ void getStandardButtons(channels* chan) {
 //Acc_B_Y = The raw acceleration value from Accelerometer B, in the Y direction
 //Acc_Gap_Distance = The distance between the center point of the accelerometers, in units of meters
 int ReturnOmega(int Acc_A_X, int Acc_A_Y,int Acc_B_X, int Acc_B_Y, byte AccGapDistance){
-//TODO: Insert conversions from raw data to m/s^2 
-int Acc_A_n = -Acc_A_X*cos((7*PI)/4) + (-Acc_A_Y*((5*PI)/4));
-int Acc_B_n = Acc_B_X*cos((3*PI)/4) + Acc_B_Y*cos(PI/4);
-int Acc_Diff = Acc_A_n - Acc_B_n;
-int Omega_Squared = Acc_Diff/AccGapDistance;
-int Omega = sqrt(Omega_Squared); 
-return Omega;
+  //TODO: Insert conversions from raw data to m/s^2 
+  int Acc_A_n = -Acc_A_X*cos((7*PI)/4) + (-Acc_A_Y*((5*PI)/4));
+  int Acc_B_n = Acc_B_X*cos((3*PI)/4) + Acc_B_Y*cos(PI/4);
+  int Acc_Diff = Acc_A_n - Acc_B_n;
+  int Omega_Squared = Acc_Diff/AccGapDistance;
+  int Omega = sqrt(Omega_Squared); 
+  return Omega;
 }
 
+//Standard Safe Mode, STOP EVERYTHING
 void mode1()
 {
-    digitalWrite(LED_STATUS, HIGH);
-    //STOP!
-    escLeft.sendMotorStop();
-    escRight.sendMotorStop();
+  digitalWrite(LED_STATUS, HIGH);
+  //STOP!
+  ESCA.stop();
+  ESCB.stop();
 }
 
+//Tank Drive Mode, using the right stick
 void mode2()
 {
-    digitalWrite(LED_STATUS, LOW);
-    int stickThrottleValue = 0;
-    int stickTurnValue = 0;
-    int throttleL = 0;
-    int throttleR = 0;
+  digitalWrite(LED_STATUS, LOW);
 
-    //Get channels
-    getStandardDriveSticks(&mChannels);
+  int throttleA = 0;
+  int throttleB = 0;
 
-    //Ensure Values are Within Bounds
-    if(mChannels.Right_LR<990){
-      mChannels.Right_LR=990;
-    }
-    if(mChannels.Right_LR>2011){
-      mChannels.Right_LR=2011;
-    }
-    if(mChannels.Right_UD<990){
-      mChannels.Right_UD=990;
-    }
-    if(mChannels.Right_UD>2011){
-      mChannels.Right_UD=2011;
-    }
-    //Scale Values From Received Value to Throttle Value
-    stickThrottleValue = map(mChannels.Right_UD, 990, 2011, -400, 400);
-    stickTurnValue = map(mChannels.Right_LR, 990, 2011, -400, 400);
+  //Get channels
+  getStandardDriveSticks(&mChannels);
 
-    //get ranges pre scalled between [-128,128] [247,502]
-    //mChannels.Right_LR = (mChannels.Right_LR >> 2) - 375;
-    //get ranges pre scalled between [-256,256] [247,502]
-    //mChannels.Right_UD = (mChannels.Right_LR >> 1) - 750;
+  //get ranges pre scalled between [-128,128] [247,502]
+  //mChannels.Right_LR = (mChannels.Right_LR >> 2) - 375;
+  //get ranges pre scalled between [-256,256] [247,502]
+  //mChannels.Right_UD = (mChannels.Right_LR >> 1) - 750;
 
-    //update throttles between [-48,48]
-    throttleL = stickThrottleValue - stickTurnValue;
-    throttleR = stickThrottleValue + stickTurnValue;
+  mChannels.Right_UD = map(mChannels.Right_UD, 990, 2011, -666, 666);
+  mChannels.Right_LR = map(mChannels.Right_LR, 990, 2011, -333, 333);
 
-    //send throttles 
-    escLeft.sendThrottle3D(throttleL);
-    escRight.sendThrottle3D(throttleR);
+  //update throttles between [-48,48]
+  throttleA = mChannels.Right_UD - mChannels.Right_LR;
+  throttleB = mChannels.Right_UD + mChannels.Right_LR;
+
+  //send throttles 
+  ESCA.setSpeed3D(throttleA);
+  ESCB.setSpeed3D(throttleB);
 }
 
+//THEORETICAL MELTY MODE
 void mode3()
 {
-  escLeft.sendThrottle3D(50);
+  ESCA.setSpeed3D(50);
+  ESCB.setSpeed3D(50);
   delay(1);
 }
 
@@ -219,8 +200,8 @@ void setup() {
   pinMode(S2_MOSI, OUTPUT);
   pinMode(S2_SCK, OUTPUT);
   pinMode(IR_LED_B, OUTPUT);
-  pinMode(ESC_A, OUTPUT);
-  pinMode(ESC_B, OUTPUT);
+  //pinMode(ESC_A, OUTPUT);
+  //pinMode(ESC_B, OUTPUT);
   pinMode(LED_STATUS, OUTPUT);
   pinMode(BOT_HDG_LED, OUTPUT);
   pinMode(TOP_HDG_LED, OUTPUT);
@@ -239,27 +220,19 @@ void setup() {
   getAllChannels(&mChannels);
   Serial.printf("Channel:\n Right_LR: %d\n Right_UD: %d\n Left_LR:  %d\n Left_UD:  %d\n E:        %d\nF:        %d\n B:        %d\n C:        %d\n A:        %d\n D:        %d\n G:        %d\n H:        %d\n", mChannels.Right_LR, mChannels.Right_UD, mChannels.Left_LR, mChannels.Left_UD, mChannels.E, mChannels.F, mChannels.B, mChannels.C, mChannels.A, mChannels.D, mChannels.G, mChannels.H);
 
-  //setup Dshot
-  mMotors.Forward_L = false;
-  mMotors.Forward_R = false;
-  mMotors.Reversed_L = false;
-  mMotors.Reversed_R = false;
+  //set Dshot
+  bool DShot = true;
 
-	escLeft.install(GPIO_NUM_34, RMT_CHANNEL_0);
-	escLeft.init();
-	//escLeft.setReversed(mMotors.Forward_L);
-	escLeft.set3DMode(true);
-  
-	escRight.install(GPIO_NUM_35, RMT_CHANNEL_1);
-	escRight.init();
-	//escRight.setReversed(mMotors.Forward_R);
-	escRight.set3DMode(true);
+	ESCA.ESCContInit(GPIO_NUM_34, RMT_CHANNEL_0, true, false);
+	ESCB.ESCContInit(GPIO_NUM_34, RMT_CHANNEL_0, true, false);
 
-  escLeft.sendMotorStop();
-  escRight.sendMotorStop();
 	for (int i = 0; i < 5; i++)
 	{
-		escLeft.beep(i);
+		ESCA.beep(i);
+	}
+  for (int i = 0; i < 5; i++)
+	{
+		ESCB.beep(i);
 	}
 }
 
@@ -271,7 +244,7 @@ void loop() {
     mode1();
     return;
   }
-  
+
   //Standard Drive Control Loop -- This Loop Allows Controlling the Robot using Tank Controls. Motion is Limited to Tank Steering Only. All Motion is Controlled by Operator.
   if(crsf.isLinkUp() && Mode==2){
     mode2();
