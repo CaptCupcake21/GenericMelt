@@ -158,42 +158,43 @@ void mode1()
 void mode2()
 {
     digitalWrite(LED_STATUS, LOW);
-
+    int stickThrottleValue = 0;
+    int stickTurnValue = 0;
     int throttleL = 0;
     int throttleR = 0;
 
     //Get channels
     getStandardDriveSticks(&mChannels);
 
+    //Ensure Values are Within Bounds
+    if(mChannels.Right_LR<990){
+      mChannels.Right_LR=990;
+    }
+    if(mChannels.Right_LR>2011){
+      mChannels.Right_LR=2011;
+    }
+    if(mChannels.Right_UD<990){
+      mChannels.Right_UD=990;
+    }
+    if(mChannels.Right_UD>2011){
+      mChannels.Right_UD=2011;
+    }
+    //Scale Values From Received Value to Throttle Value
+    stickThrottleValue = map(mChannels.Right_UD, 990, 2011, -400, 400);
+    stickTurnValue = map(mChannels.Right_LR, 990, 2011, -400, 400);
+
     //get ranges pre scalled between [-128,128] [247,502]
-    mChannels.Right_LR = (mChannels.Right_LR >> 2) - 375;
+    //mChannels.Right_LR = (mChannels.Right_LR >> 2) - 375;
     //get ranges pre scalled between [-256,256] [247,502]
-    mChannels.Right_UD = (mChannels.Right_LR >> 1) - 750;
+    //mChannels.Right_UD = (mChannels.Right_LR >> 1) - 750;
 
     //update throttles between [-48,48]
-    throttleL = mChannels.Right_UD - mChannels.Right_LR;
-    throttleR = mChannels.Right_UD + mChannels.Right_LR;
-
-    // If we need to flip the direction of the motor do so
-    if((!mMotors.Reversed_L && (throttleL < 0)) || (mMotors.Reversed_L && (throttleL >= 0))) 
-    {
-      mMotors.Reversed_L = !mMotors.Reversed_L;
-      escLeft.setReversed(mMotors.Reversed_L);
-    }
-
-    if((!mMotors.Reversed_R && (throttleR < 0)) || (mMotors.Reversed_R && (throttleR >= 0))) 
-    {
-      mMotors.Reversed_R = !mMotors.Reversed_R;
-      escRight.setReversed(mMotors.Reversed_R);
-    }
-
-    //get absolute value to pass into throttle
-    throttleL = abs(throttleL);
-    throttleR = abs(throttleR);
+    throttleL = stickThrottleValue - stickTurnValue;
+    throttleR = stickThrottleValue + stickTurnValue;
 
     //send throttles 
-    escLeft.sendThrottle(throttleL);
-    escRight.sendThrottle(throttleR);
+    escLeft.sendThrottle3D(throttleL);
+    escRight.sendThrottle3D(throttleR);
 }
 
 void mode3()
@@ -240,18 +241,18 @@ void setup() {
 
   //setup Dshot
   mMotors.Forward_L = false;
-  mMotors.Forward_R = true;
+  mMotors.Forward_R = false;
   mMotors.Reversed_L = false;
   mMotors.Reversed_R = false;
 
 	escLeft.install(GPIO_NUM_34, RMT_CHANNEL_0);
 	escLeft.init();
-	escLeft.setReversed(mMotors.Forward_L);
+	//escLeft.setReversed(mMotors.Forward_L);
 	escLeft.set3DMode(true);
   
-	escRight.install(GPIO_NUM_34, RMT_CHANNEL_0);
+	escRight.install(GPIO_NUM_35, RMT_CHANNEL_1);
 	escRight.init();
-	escRight.setReversed(mMotors.Forward_R);
+	//escRight.setReversed(mMotors.Forward_R);
 	escRight.set3DMode(true);
 
   escLeft.sendMotorStop();
